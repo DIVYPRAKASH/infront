@@ -1,0 +1,13 @@
+#!/bin/bash
+
+MOUNT=${HOME}
+ARGS="$@"
+
+exec docker run \
+        --net=host \
+        -it \
+        --rm \
+        -v ${MOUNT}:${MOUNT} \
+        -w $(pwd) \
+        infront:latest \
+        $ARGS
