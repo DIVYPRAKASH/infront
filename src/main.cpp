@@ -60,14 +60,8 @@ struct collatedFilePaths
     {}
 };
 
-void printToFile(std::map<std::size_t,std::map<path,std::set<path>>> const & v) {
-    auto path = current_path().append("output.txt");
-    if (exists(path))
-    {
-        std::remove("output.txt");
-    }
-    auto output = std::ofstream{ "output.txt" };
-
+std::map<std::size_t,collatedFilePaths> collateSameFilePaths(std::map<std::size_t,std::map<path,std::set<path>>> const & v)
+{
     std::map<std::size_t,collatedFilePaths> combinedSameParentPath;
     for (const auto& i : v)
     {
@@ -77,6 +71,8 @@ void printToFile(std::map<std::size_t,std::map<path,std::set<path>>> const & v) 
             {
                 for (auto it = std::next(it1, 1); it != i.second.end(); ++it)
                 {
+                    // create a combined hash for all the directories
+                    // cache the hash in a map 
                     if(compareSet(it1->second, it->second))
                     {
                         auto combinedHash = createCombinedHash(it->second);
@@ -93,9 +89,7 @@ void printToFile(std::map<std::size_t,std::map<path,std::set<path>>> const & v) 
                             fileNames.emplace(it1->first);
                             fileNames.emplace(it->first);
                             combinedSameParentPath.emplace(combinedHash, collatedFilePaths(fileNames,it1->second));
-                        }   
-                        // create a combined hash for all the directories
-                        // cache the hash in an unorderd_map 
+                        }
                     }
                     else
                     {
@@ -118,6 +112,19 @@ void printToFile(std::map<std::size_t,std::map<path,std::set<path>>> const & v) 
             }
         }
     }
+    return combinedSameParentPath;
+}
+
+void printToFile(std::map<std::size_t,collatedFilePaths> const & combinedSameParentPath)
+{
+    auto path = current_path().append("output.txt");
+    if (exists(path))
+    {
+        std::remove("output.txt");
+    }
+    auto output = std::ofstream{ "output.txt" };
+
+   
     for (const auto& i : combinedSameParentPath)
     {
         if(!i.second.fileNames.empty())
@@ -213,5 +220,6 @@ int main(int argc, char* argv[]) {
     }
 
   auto duplicates = findDuplicates(filePaths);
-  printToFile(duplicates);
+  auto collatedInfo = collateSameFilePaths(duplicates);
+  printToFile(collatedInfo);
 }

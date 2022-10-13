@@ -13,15 +13,10 @@ mkdir Release && "$_"
 
 3. There should be a output.txt file generated in the Release folder which should look like this: (This corresponds to LEVEL 2 of the task)
 ```
-"FileX"
+"FileX,FileY"
 	"DirA"
+    "DirB"
 	"DirB/DirBB"
-	"DirB"
-	"DirCC"
-"FileY"
-	"DirA"
-	"DirB/DirBB"
-	"DirB"
 	"DirC/DirCC"
 "FileYY"
 	"DirB/DirBB"
