@@ -27,7 +27,40 @@ auto isEqualFile(const path& a, const path& b) {
   return true;
 }
 
-void printToFile(std::vector<std::map<path,std::set<path>>> const & v) {
+bool compareSet(const std::set<path> & pathsA, const std::set<path> & pathsB)
+{
+    if(pathsA.size() != pathsB.size())
+        return false;
+    return pathsA == pathsB;
+}
+
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v)
+{
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
+
+std::size_t createCombinedHash(const std::set<path> & paths)
+{
+    std::size_t seed = 0;
+    for(auto const & path : paths)
+    {
+        hash_combine(seed,hash_value(path));
+    }
+    return seed;
+}
+
+struct collatedFilePaths
+{
+    std::set<path> fileNames;
+    std::set<path> parentPaths;
+    collatedFilePaths(std::set<path> const & infileNames, std::set<path> const & inParentPaths)
+    :fileNames(infileNames),parentPaths(inParentPaths)
+    {}
+};
+
+void printToFile(std::map<std::size_t,std::map<path,std::set<path>>> const & v) {
     auto path = current_path().append("output.txt");
     if (exists(path))
     {
@@ -35,21 +68,86 @@ void printToFile(std::vector<std::map<path,std::set<path>>> const & v) {
     }
     auto output = std::ofstream{ "output.txt" };
 
+    std::map<std::size_t,collatedFilePaths> combinedSameParentPath;
     for (const auto& i : v)
     {
-        for (const auto& j : i)
+        if(i.second.size() > 1)
         {
-            output << j.first << '\n';
-            for (const auto& k : j.second)
+            for (auto it1 = i.second.begin(); (it1 != i.second.end()); ++it1)
             {
-                output << '\t' << k.parent_path() << '\n';
+                for (auto it = std::next(it1, 1); it != i.second.end(); ++it)
+                {
+                    if(compareSet(it1->second, it->second))
+                    {
+                        auto combinedHash = createCombinedHash(it->second);
+                        auto iter = combinedSameParentPath.find(combinedHash);
+                        if(iter != combinedSameParentPath.end())
+                        {
+                           //hash is present update the fileNames
+                            iter->second.fileNames.emplace(it1->first);
+                            iter->second.fileNames.emplace(it->first);
+                        }
+                        else
+                        {
+                            std::set<std::filesystem::path> fileNames;
+                            fileNames.emplace(it1->first);
+                            fileNames.emplace(it->first);
+                            combinedSameParentPath.emplace(combinedHash, collatedFilePaths(fileNames,it1->second));
+                        }   
+                        // create a combined hash for all the directories
+                        // cache the hash in an unorderd_map 
+                    }
+                    else
+                    {
+                        auto combinedHash = createCombinedHash(it->second);
+                        std::set<std::filesystem::path> fileNames;
+                        fileNames.emplace(it->first);
+                        combinedSameParentPath.emplace(combinedHash, collatedFilePaths(fileNames,it1->second));
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (auto it1 = i.second.begin(); (it1 != i.second.end()); ++it1)
+            {
+                auto combinedHash = createCombinedHash(it1->second);
+                std::set<std::filesystem::path> fileNames;
+                fileNames.emplace(it1->first);
+                combinedSameParentPath.emplace(combinedHash, collatedFilePaths(fileNames,it1->second));
+            }
+        }
+    }
+    for (const auto& i : combinedSameParentPath)
+    {
+        if(!i.second.fileNames.empty())
+        {
+            if(i.second.fileNames.size() > 1)
+            {
+                std::string s = i.second.fileNames.begin()->u8string();
+                std::for_each(std::next(i.second.fileNames.begin()), i.second.fileNames.end(), [&s] (std::filesystem::path const &val) {
+                    s.append(", ").append(val.u8string());
+                });
+                output << s << '\n';
+                for (const auto& k : i.second.parentPaths)
+                {
+                    output << '\t' << k << '\n';
+                }
+            }
+            else
+            {
+                output << *i.second.fileNames.begin() << '\n';
+                for (const auto& k : i.second.parentPaths)
+                {
+                    output << '\t' << k << '\n';
+                }
             }
         }
     }
 }
 
-std::vector<std::map<path,std::set<path>>> findDuplicates(std::map<std::size_t,std::vector<path>> const & iFilePaths) {
-    std::vector<std::map<path,std::set<path>>> allDuplicates;
+std::map<std::size_t,std::map<path,std::set<path>>> findDuplicates(std::map<std::size_t,std::vector<path>> const & iFilePaths) {
+    std::map<std::size_t,std::map<path,std::set<path>>> allDuplicates;
     for(const auto & pair : iFilePaths)
     {
         std::map<path,std::set<path>>duplicates;
@@ -60,12 +158,12 @@ std::vector<std::map<path,std::set<path>>> findDuplicates(std::map<std::size_t,s
                 if(isEqualFile(*it1, *it2))
                 {
                     // Woot! Found some...
-                    duplicates[it1->filename()].emplace(*it1);
-                    duplicates[it1->filename()].emplace(*it2);
+                    duplicates[it1->filename()].emplace(it1->parent_path());
+                    duplicates[it1->filename()].emplace(it2->parent_path());
                 }
             }
         }
-        allDuplicates.emplace_back(duplicates);
+        allDuplicates.emplace(pair.first,duplicates);
     }
 
   return allDuplicates;
