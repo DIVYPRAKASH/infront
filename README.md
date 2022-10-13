@@ -11,7 +11,7 @@ mkdir Release && "$_"
 ../runUsingDocker ./bin/infront <FILEPATH>
 ```
 
-3. There should be a output.txt file generated in the Release folder which should look like this: (This corresponds to LEVEL 2 of the task)
+3. There should be a output.txt file generated in the Release folder which should look like this: (This corresponds to LEVEL 3 of the task)
 ```
 "FileX,FileY"
 	"DirA"
