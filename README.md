@@ -15,7 +15,7 @@ mkdir Release && "$_"
 ```
 "FileX,FileY"
 	"DirA"
-    "DirB"
+        "DirB"
 	"DirB/DirBB"
 	"DirC/DirCC"
 "FileYY"
